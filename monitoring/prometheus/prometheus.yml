@@ -1,0 +1,15 @@
+# Prometheus configuration for Kafka learning environment
+global:
+  scrape_interval: 5s       # Scrape targets frequently for responsive local learning
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Scrape Prometheus's own metrics
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Scrape Kafka metrics from kafka-exporter
+  - job_name: "kafka-exporter"
+    static_configs:
+      - targets: ["kafka-exporter:9308"]
