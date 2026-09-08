@@ -39,12 +39,15 @@ try:
             print(f"Error: {exc}")
             continue
 
-        print(
-            f"Received order: "
-            f"order_id={order['order_id']}, "
-            f"customer_id={order['customer_id']}, "
-            f"amount={order['amount']}"
-        )
+        order_id = order["order_id"]
+        amount = order["amount"]
+
+        print(f"Processing order {order_id}...")
+
+        if amount > 50000:
+            print(f"Order {order_id} requires manual review.")
+        else:
+            print(f"Order {order_id} approved.")
 except KeyboardInterrupt:
     print("Stopping consumer...")
 finally:
