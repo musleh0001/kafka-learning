@@ -2,7 +2,10 @@ import json
 
 from confluent_kafka import Consumer
 
+from common.events import create_event
+
 from .config import config
+from .kafka import flush, publish_payment_completed
 
 conf = {
     "bootstrap.servers": config.kafka_bootstrap_servers,
@@ -14,9 +17,14 @@ consumer = Consumer(conf)
 
 
 def process_payment(event: dict):
-    print(f"[PAYMENT] Processing order {event['order_id']}")
-    print(f"[PAYMENT] Amount: {event['amount']}")
-    print(f"[PAYMENT] Payment completed")
+    data = event["data"]
+    amount = (
+        int(data["amount"]) if data["amount"] == int(data["amount"]) else data["amount"]
+    )
+
+    print("[PAYMENT] Processing order")
+    print(f"[PAYMENT] Charging {amount}")
+    print("[PAYMENT] Payment successful")
 
 
 def run():
@@ -35,16 +43,28 @@ def run():
 
             event = json.loads(message.value().decode("utf-8"))  # type: ignore
 
-            print(
-                f"Received event: "
-                f"partition={message.partition()} "
-                f"offset={message.offset()}"
-            )
+            if event.get("event_type") != "order.created":
+                consumer.commit(message=message)
+                continue
 
             process_payment(event)
+
+            data = {
+                "order_id": event["data"]["order_id"],
+                "amount": event["data"]["amount"],
+                "status": "COMPLETED",
+            }
+            payment_event = create_event(
+                event_type="payment.completed",
+                correlation_id=event["correlation_id"],
+                data=data,
+            )
+            publish_payment_completed(payment_event)
+            print("Published payment.completed")
 
             consumer.commit(message=message)
     except KeyboardInterrupt:
         print("Stopping payment service")
     finally:
+        flush()
         consumer.close()

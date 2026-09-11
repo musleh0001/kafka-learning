@@ -8,18 +8,19 @@ from .config import config
 
 conf = {
     "bootstrap.servers": config.kafka_bootstrap_servers,
-    "client.id": "order-service",
+    "client.id": "payment-service",
 }
 producer = Producer(conf)
 
 
-def publish_order(event: dict):
+def publish_payment_completed(event):
     producer.produce(
-        topic=config.orders_topic,
+        topic=config.payment_topic,
         key=event["correlation_id"],
         value=json.dumps(event),
         callback=delivery_report,
     )
+
     producer.flush()
 
 

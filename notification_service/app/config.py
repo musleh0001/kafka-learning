@@ -8,7 +8,7 @@ class Config(BaseSettings):
     )
 
     kafka_bootstrap_servers: str = Field(default="localhost:9092")
-    orders_topic: str = Field(default="orders")
+    orders_topic: str = Field(default="order-events")
     notification_group: str = Field(default="notification-service")
 
 

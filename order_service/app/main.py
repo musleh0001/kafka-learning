@@ -3,6 +3,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI
 
+from common.events import create_event
+
 from .kafka import flush, publish_order
 from .models import create_order, create_tables
 from .schemas import CreateOrderRequest
@@ -25,7 +27,7 @@ def health():
 
 @app.post("/orders")
 def create_new_order(request: CreateOrderRequest):
-    order_id = str(uuid4())
+    order_id = request.order_id or str(uuid4())
 
     create_order(
         order_id=order_id,
@@ -35,17 +37,18 @@ def create_new_order(request: CreateOrderRequest):
         amount=request.amount,
     )
 
-    event = {
-        "event_type": "order.created",
-        "event_id": str(uuid4()),
+    data = {
         "order_id": order_id,
         "customer_id": request.customer_id,
         "product_id": request.product_id,
         "quantity": request.quantity,
         "amount": request.amount,
     }
+    event = create_event(event_type="order.created", correlation_id=order_id, data=data)
 
+    print("Order created")
     publish_order(event)
+    print("Published order.created")
 
     return {
         "order_id": order_id,

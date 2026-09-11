@@ -1,4 +1,4 @@
-from pydantic import Field, computed_field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,9 +8,10 @@ class Config(BaseSettings):
     )
 
     kafka_bootstrap_servers: str = Field(default="localhost:9092")
-    orders_topic: str = Field(default="order-events")
+    order_topic: str = Field(default="order-events")
+    inventory_topic: str = Field(default="inventory-events")
     payment_topic: str = Field(default="payment-events")
-    payment_group: str = Field(default="payment-service")
+    group_id: str = Field(default="order-processor")
 
 
 config = Config()

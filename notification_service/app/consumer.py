@@ -13,9 +13,8 @@ conf = {
 consumer = Consumer(conf)
 
 
-def send_notification(event):
-    print(f"[NOTIFICATION] Sending order confirmation for {event['order_id']}")
-    print(f"[NOTIFICATION] Customer: {event['customer_id']}")
+def send_notification(event: dict):
+    print(f"Sending confirmation for {event['data']['order_id']}")
 
 
 def run():
@@ -33,6 +32,11 @@ def run():
                 continue
 
             event = json.loads(message.value().decode("utf-8"))  # type: ignore
+
+            if event.get("event_type") != "order.completed":
+                consumer.commit(message=message)
+                continue
+
             send_notification(event)
             consumer.commit(message=message)
     except KeyboardInterrupt:
