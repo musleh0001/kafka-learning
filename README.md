@@ -290,14 +290,15 @@ from confluent_kafka import Producer
 conf = {
     "bootstrap.servers": "localhost:9092",
     "client.id": "order-service",
-    "acks": "all",                 # Wait for all replicas
-    "enable.idempotence": True,    # Prevent duplicate sends
-    "retries": 5,                  # Retry transient network errors
-    "linger.ms": 10,               # Batch messages for up to 10ms
+    "acks": "all",  # Wait for all replicas
+    "enable.idempotence": True,  # Prevent duplicate sends
+    "retries": 5,  # Retry transient network errors
+    "linger.ms": 10,  # Batch messages for up to 10ms
     "compression.type": "snappy",  # Compress batch payloads
 }
 
 producer = Producer(conf)
+
 
 def delivery_callback(err, msg):
     if err:
@@ -308,12 +309,13 @@ def delivery_callback(err, msg):
             f"[partition {msg.partition()}] at offset {msg.offset()}"
         )
 
+
 order = {
     "order_id": 1001,
     "customer_id": 501,
     "product": "Laptop",
     "amount": 85000,
-    "status": "CREATED"
+    "status": "CREATED",
 }
 
 # Produce using order_id as key to preserve ordering per order
@@ -321,7 +323,7 @@ producer.produce(
     topic="orders",
     key=str(order["order_id"]),
     value=json.dumps(order),
-    on_delivery=delivery_callback
+    on_delivery=delivery_callback,
 )
 
 # Wait for all outstanding buffered messages to be delivered
@@ -342,17 +344,20 @@ conf = {
     "bootstrap.servers": "localhost:9092",
     "group.id": "order-processing-group",
     "auto.offset.reset": "earliest",
-    "enable.auto.commit": False,          # Manual commit for at-least-once safety
+    "enable.auto.commit": False,  # Manual commit for at-least-once safety
 }
 
 consumer = Consumer(conf)
 consumer.subscribe(["orders"])
 
 running = True
+
+
 def shutdown(sig, frame):
     global running
     print("\nShutting down consumer cleanly...")
     running = False
+
 
 signal.signal(signal.SIGINT, shutdown)
 signal.signal(signal.SIGTERM, shutdown)
@@ -371,7 +376,9 @@ try:
 
         # Process message
         order = json.loads(msg.value().decode("utf-8"))
-        print(f"📦 Processing order #{order['order_id']} for customer {order['customer_id']}")
+        print(
+            f"📦 Processing order #{order['order_id']} for customer {order['customer_id']}"
+        )
 
         # Commit offset after successful business processing
         consumer.commit(message=msg, asynchronous=False)
@@ -391,6 +398,7 @@ import json
 
 producer = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global producer
@@ -398,15 +406,13 @@ async def lifespan(app: FastAPI):
     yield
     producer.flush()
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 @app.post("/orders")
 async def create_order(order: dict):
-    producer.produce(
-        "orders",
-        key=str(order.get("order_id")),
-        value=json.dumps(order)
-    )
+    producer.produce("orders", key=str(order.get("order_id")), value=json.dumps(order))
     producer.poll(0)  # Serve delivery callbacks non-blocking
     return {"status": "Order submitted"}
 ```

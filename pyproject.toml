@@ -6,8 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "confluent-kafka>=2.15.0",
+    "fastapi>=0.141.1",
+    "psycopg2-binary>=2.9.13",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
     "pyrefly>=1.2.0",
     "ruff>=0.16.6",
+    "uvicorn[standard]>=0.52.4",
 ]
 
 [tool.pyrefly]
@@ -18,3 +23,8 @@ project-includes = [
 
 [tool.ruff.lint]
 select = ["I"]
+
+[dependency-groups]
+dev = [
+    "types-psycopg2>=2.9.21.20260724",
+]

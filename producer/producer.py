@@ -14,41 +14,43 @@ def delivery_report(err, msg):
     print(
         "Message delivered successfully: "
         f"topic={msg.topic()}, "
+        f"key={msg.key().decode()}, "
         f"partition={msg.partition()}, "
         f"offset={msg.offset()}"
     )
 
 
-producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS})
-orders = [
-    {
-        "event": "order.created",
-        "order_id": 1003,
-        "customer_id": 503,
-        "product": "Mouse",
-        "amount": 1500,
-    },
-    {
-        "event": "order.created",
-        "order_id": 1004,
-        "customer_id": 504,
-        "product": "Monitor",
-        "amount": 25000,
-    },
-    {
-        "event": "order.created",
-        "order_id": 1005,
-        "customer_id": 505,
-        "product": "Headphones",
-        "amount": 5000,
-    },
-]
+conf = {
+    "bootstrap.servers": "localhost:9092",
+    "linger.ms": 20,  # Wait up to 20ms to batch messages
+    "batch.size": 65536,  # 64 KB batch size
+    "compression.type": "snappy",
+}
+producer = Producer(conf)
 
-for order in orders:
-    producer.produce(
-        TOPIC,
-        key=str(order["order_id"]),
-        value=json.dumps(order),
-        callback=delivery_report,
-    )
+for customer_id in range(1, 1000):
+    order = {
+        "event": "order.created",
+        "order_id": customer_id * 100,
+        "customer_id": customer_id,
+        "amount": 1000,
+    }
+
+    try:
+        producer.produce(
+            TOPIC,
+            key=str(order["customer_id"]),
+            value=json.dumps(order),
+            callback=delivery_report,
+        )
+    except BufferError:
+        producer.poll(0.5)
+        producer.produce(
+            TOPIC,
+            key=str(order["customer_id"]),
+            value=json.dumps(order),
+            callback=delivery_report,
+        )
+    producer.poll(0)
+
 producer.flush()

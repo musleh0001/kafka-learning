@@ -1,20 +1,21 @@
 import json
+import os
 
 from confluent_kafka import Consumer
 
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 TOPIC = "orders"
 GROUP_ID = "order-processing-group"
+CONSUMER_ID = os.getenv("CONSUMER_ID", "consumer-1")
 
+conf = {
+    "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
+    "group.id": GROUP_ID,
+    "client.id": CONSUMER_ID,
+    "auto.offset.reset": "earliest",
+}
 
-consumer = Consumer(
-    {
-        "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
-        "group.id": GROUP_ID,
-        "auto.offset.reset": "earliest",
-    }
-)
-
+consumer = Consumer(conf)
 consumer.subscribe([TOPIC])
 
 print("Consumer started...")
@@ -39,15 +40,14 @@ try:
             print(f"Error: {exc}")
             continue
 
-        order_id = order["order_id"]
-        amount = order["amount"]
-
-        print(f"Processing order {order_id}...")
-
-        if amount > 50000:
-            print(f"Order {order_id} requires manual review.")
-        else:
-            print(f"Order {order_id} approved.")
+        print(
+            f"[{CONSUMER_ID}] "
+            f"Received order: "
+            f"[{order['event']}]: "
+            f"customer_id={order['customer_id']}, "
+            f"partition={message.partition()}, "
+            f"offset={message.offset()}"
+        )
 except KeyboardInterrupt:
     print("Stopping consumer...")
 finally:
