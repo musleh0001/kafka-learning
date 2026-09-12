@@ -3,10 +3,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI
 
-from common.events import create_event
-
-from .kafka import flush, publish_order
-from .models import create_order, create_tables
+from .models import create_order_with_event, create_tables
 from .schemas import CreateOrderRequest
 
 
@@ -14,10 +11,12 @@ from .schemas import CreateOrderRequest
 async def lifespan(app: FastAPI):
     create_tables()
     yield
-    flush()
 
 
-app = FastAPI(title="Kafka Order Service", lifespan=lifespan)
+app = FastAPI(
+    title="Kafka Order Service",
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")
@@ -26,29 +25,33 @@ def health():
 
 
 @app.post("/orders")
-def create_new_order(request: CreateOrderRequest):
-    order_id = request.order_id or str(uuid4())
+def create_new_order(
+    request: CreateOrderRequest,
+):
+    order_id = str(uuid4())
 
-    create_order(
+    event = {
+        "event_id": str(uuid4()),
+        "event_type": "order.created",
+        "event_version": 1,
+        "correlation_id": order_id,
+        "data": {
+            "order_id": order_id,
+            "customer_id": request.customer_id,
+            "product_id": request.product_id,
+            "quantity": request.quantity,
+            "amount": request.amount,
+        },
+    }
+
+    create_order_with_event(
         order_id=order_id,
         customer_id=request.customer_id,
         product_id=request.product_id,
         quantity=request.quantity,
         amount=request.amount,
+        event=event,
     )
-
-    data = {
-        "order_id": order_id,
-        "customer_id": request.customer_id,
-        "product_id": request.product_id,
-        "quantity": request.quantity,
-        "amount": request.amount,
-    }
-    event = create_event(event_type="order.created", correlation_id=order_id, data=data)
-
-    print("Order created")
-    publish_order(event)
-    print("Published order.created")
 
     return {
         "order_id": order_id,

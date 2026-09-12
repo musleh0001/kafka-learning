@@ -50,7 +50,6 @@ try:
             print(f"Consumer error: {err}")
             continue
 
-
         try:
             if message.value() is None:
                 print(
@@ -58,7 +57,6 @@ try:
                     f"partition={message.partition()}, offset={message.offset()}"
                 )
                 continue
-
 
             raw_value = message.value().decode("utf-8")  # type: ignore
             order = json.loads(raw_value)

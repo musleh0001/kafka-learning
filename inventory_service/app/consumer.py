@@ -55,7 +55,6 @@ def run():
                 print(f"[INVENTORY] Kafka error: {err}")
                 continue
 
-
             try:
                 event = json.loads(message.value().decode("utf-8"))  # type: ignore
             except Exception as exc:

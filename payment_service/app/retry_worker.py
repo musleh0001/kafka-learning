@@ -50,7 +50,6 @@ def run():
                 print(f"[RETRY] Kafka error: {err}")
                 continue
 
-
             try:
                 event = json.loads(message.value().decode("utf-8"))  # type: ignore
             except Exception as exc:
@@ -63,7 +62,6 @@ def run():
                 f"[RETRY] Processing retry={event.get('retry_count')} "
                 f"for order={order_id}"
             )
-
 
             try:
                 # Simulate payment processing again
