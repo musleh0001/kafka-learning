@@ -14,7 +14,7 @@ def create_tables():
         cursor = connection.cursor()
 
         cursor.execute("""
-            create table if not exists orders (
+            CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
                 order_id VARCHAR(100) UNIQUE NOT NULL,
                 customer_id VARCHAR(100) NOT NULL,
@@ -22,7 +22,16 @@ def create_tables():
                 quantity INTEGER NOT NULL,
                 amount NUMERIC(12, 2) NOT NULL,
                 status VARCHAR(50) NOT NULL
-            )
+            );
+
+            CREATE TABLE IF NOT EXISTS processed_events (
+                id SERIAL PRIMARY KEY,
+                event_id VARCHAR(255) NOT NULL,
+                consumer_name VARCHAR(255) NOT NULL,
+                processed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+                UNIQUE(event_id, consumer_name)
+            );
         """)
 
         connection.commit()
