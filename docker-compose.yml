@@ -31,7 +31,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
       # Allow topic creation for learning
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
 
       # Log retention
       KAFKA_LOG_RETENTION_HOURS: 168

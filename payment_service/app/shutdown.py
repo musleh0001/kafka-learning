@@ -1,13 +1,18 @@
 import signal
 
-running = True
+_running = True
 
 
-def shutdown_handler(signum, frame):
-    global running
-    print("Shutdown signal received")
-    running = False
+def _shutdown_handler(signum, frame):
+    global _running
+    print("\nShutdown signal received. Shutting down gracefully...")
+    _running = False
 
 
-signal.signal(signal.SIGINT, shutdown_handler)
-signal.signal(signal.SIGTERM, shutdown_handler)
+def is_running() -> bool:
+    return _running
+
+
+def setup_graceful_shutdown() -> None:
+    signal.signal(signal.SIGINT, _shutdown_handler)
+    signal.signal(signal.SIGTERM, _shutdown_handler)

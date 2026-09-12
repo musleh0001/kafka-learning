@@ -2,7 +2,10 @@ import json
 
 from confluent_kafka import Producer
 
+from common.events import delivery_report
+
 from .config import config
+from .retry import get_retry_topic
 
 conf = {"bootstrap.servers": config.kafka_bootstrap_servers}
 producer = Producer(conf)
@@ -10,15 +13,15 @@ producer = Producer(conf)
 
 def publish_retry(event: dict):
     retry_count = event.get("retry_count", 0)
-
-    if retry_count >= 3:
-        topic = "payment-dlt"
-    else:
-        topic = f"payment-retry-{retry_count + 1}"
-
+    topic = get_retry_topic(retry_count)
     event["retry_count"] = retry_count + 1
 
-    producer.produce(topic=topic, key=event["correlation_id"], value=json.dumps(event))
+    producer.produce(
+        topic=topic,
+        key=event["correlation_id"],
+        value=json.dumps(event),
+        callback=delivery_report,
+    )
     producer.poll(0)
 
 

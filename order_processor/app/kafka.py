@@ -2,6 +2,8 @@ import json
 
 from confluent_kafka import Producer
 
+from common.events import delivery_report
+
 from .config import config
 
 conf = {
@@ -11,7 +13,7 @@ conf = {
 producer = Producer(conf)
 
 
-def publish_order_completed(correlation_id, order_id):
+def publish_order_completed(correlation_id: str, order_id: str):
     event = {
         "event_id": f"{order_id}-completed",
         "event_type": "order.completed",
@@ -27,9 +29,9 @@ def publish_order_completed(correlation_id, order_id):
         topic=config.order_topic,
         key=correlation_id,
         value=json.dumps(event),
+        callback=delivery_report,
     )
-
-    producer.flush()
+    producer.poll(0)
 
 
 def flush():

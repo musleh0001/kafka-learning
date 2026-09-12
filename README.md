@@ -501,18 +501,19 @@ Apache Kafka 3.x+ introduced **KRaft (Kafka Raft Metadata Mode)**, fully depreca
 
 Follow these 10 hands-on project milestones to master Kafka:
 
-- [x] **Level 1: Basic Producer → Consumer** *(Implemented in this repo)*
+- [x] **Level 1: Basic Producer → Consumer** *(Implemented)*
   - Setup single broker KRaft in Docker.
   - Send messages with `producer.py` and inspect them with `consumer.py`.
-- [ ] **Level 2: Multiple Consumers + Consumer Groups**
-  - Create a topic with 3 partitions.
-  - Launch 3 consumer processes under the same `group.id` and observe partition rebalancing and scaling.
-- [ ] **Level 3: Order Processing System**
-  - Implement full JSON schema validation, idempotency, delivery callbacks, and graceful shutdown handling.
-- [ ] **Level 4: FastAPI + Kafka Event System**
-  - Build a REST API with background async publishing and non-blocking delivery reports.
-- [ ] **Level 5: Microservices Event-Driven Architecture**
-  - Decouple an `Order Service`, `Inventory Service`, and `Notification Service` using Kafka topics as communication events.
+- [x] **Level 2: Multiple Consumers + Consumer Groups** *(Implemented)*
+  - Create a topic with 3 partitions using `scripts/create-topic.sh orders 3`.
+  - Launch multiple consumer processes under `order-processing-group` and observe partition assignment.
+- [x] **Level 3: Order Processing System** *(Implemented)*
+  - Structured event envelopes with `event_id`, `correlation_id`, `occurred_at`.
+  - Delivery callbacks, PostgreSQL-backed idempotency table (`processed_events`), and graceful shutdown signals.
+- [x] **Level 4: FastAPI + Kafka Event System** *(Implemented)*
+  - REST API endpoint (`order_service`) with asynchronous non-blocking message publishing (`poll(0)`) and clean lifespan `flush()`.
+- [x] **Level 5: Microservices Event-Driven Architecture** *(Implemented)*
+  - Full event choreography with 5 decoupled services: `order_service`, `inventory_service`, `payment_service` (with retry & DLT topics), `order_processor`, and `notification_service`.
 - [ ] **Level 6: Kafka + PostgreSQL + Outbox Pattern**
   - Eliminate distributed two-phase commit issues using an `outbox` database table and a publisher worker.
 - [ ] **Level 7: Change Data Capture (CDC) with Debezium**
@@ -528,28 +529,129 @@ Follow these 10 hands-on project milestones to master Kafka:
 
 ## Practical Exercises: Verify Your Environment
 
-Now that your Docker Compose environment is running, try these 3 steps:
-
-### 1. Create a 3-Partition Topic
+### 1. Provision All Topics (3 Partitions Each)
+Run the automated topic provisioning script:
 ```bash
-docker exec -it kafka /opt/kafka/bin/kafka-topics.sh \
-  --create --topic orders \
-  --partitions 3 \
-  --replication-factor 1 \
-  --bootstrap-server localhost:9092
+./scripts/create-all-topics.sh
+```
+Or create an individual topic:
+```bash
+./scripts/create-topic.sh orders 3
 ```
 
-### 2. Run the Producer & Consumer
-Open two terminal tabs:
-- **Terminal 1 (Consumer)**:
+### 2. Level 1 & 2: Basic Producer, Consumer & Consumer Groups
+Open two or more terminal tabs to observe partition scaling within `order-processing-group`:
+- **Terminal 1 (Consumer A)**:
   ```bash
-  uv run python consumer/consumer.py
+  CONSUMER_ID=consumer-1 uv run python consumer/consumer.py
   ```
-- **Terminal 2 (Producer)**:
+- **Terminal 2 (Consumer B)**:
+  ```bash
+  CONSUMER_ID=consumer-2 uv run python consumer/consumer.py
+  ```
+- **Terminal 3 (Producer)**:
   ```bash
   uv run python producer/producer.py
   ```
 
-### 3. Inspect Live Metrics
+---
+
+## Level 5: Running the Microservices Event Choreography
+
+The repository includes a complete event-driven microservices architecture communicating over Kafka topics with database-backed idempotency and retry queues:
+
+```
+                  +--------------------------------+
+                  |  Order Service (FastAPI :8000) |
+                  +---------------+----------------+
+                                  | produces "order.created"
+                                  v
+                         ["order-events"]
+                           |           |
+            +--------------+           +--------------+
+            | consumes                                | consumes
+            v                                         v
++-----------------------+                 +-----------------------+
+|   Inventory Service   |                 |    Payment Service    |
+| (Reserves Inventory)  |                 | (Processes & Retries) |
++-----------+-----------+                 +-----------+-----------+
+            | produces "inventory.reserved"           | produces "payment.completed"
+            v                                         v
+  ["inventory-events"]                       ["payment-events"]
+            \                                         /
+             +-------------------+-------------------+
+                                 | consumes both
+                                 v
+                     +-----------------------+
+                     |    Order Processor    |
+                     | (Coordinates & Sagas) |
+                     +-----------+-----------+
+                                 | produces "order.completed"
+                                 v
+                         ["order-events"]
+                                 | consumes
+                                 v
+                     +-----------------------+
+                     | Notification Service  |
+                     |  (Sends Confirmation) |
+                     +-----------------------+
+```
+
+### Step-by-Step Microservices Startup
+
+Open separate terminal tabs for each service:
+
+1. **Start Kafka and Postgres** (if not already running):
+   ```bash
+   docker compose up -d
+   ./scripts/create-all-topics.sh
+   ```
+
+2. **Start Order Processor Coordinator**:
+   ```bash
+   uv run python -m order_processor.app.main
+   ```
+
+3. **Start Inventory Service**:
+   ```bash
+   uv run python -m inventory_service.app.main
+   ```
+
+4. **Start Payment Service**:
+   ```bash
+   uv run python -m payment_service.app.main
+   ```
+
+5. **Start Notification Service**:
+   ```bash
+   uv run python -m notification_service.app.main
+   ```
+
+6. **Start Order API Service**:
+   ```bash
+   uv run uvicorn order_service.app.main:app --port 8000 --reload
+   ```
+
+7. **Submit a Test Order**:
+   ```bash
+   curl -X POST http://localhost:8000/orders \
+     -H "Content-Type: application/json" \
+     -d '{
+       "customer_id": "cust_42",
+       "product_id": "laptop_99",
+       "quantity": 1,
+       "amount": 1299.99
+     }'
+   ```
+
+Watch the terminal logs across all services:
+- **`order_service`**: Writes order to Postgres and publishes `order.created` with the `order_id` as correlation ID and partition key.
+- **`inventory_service`**: Receives `order.created`, reserves stock, and publishes `inventory.reserved`.
+- **`payment_service`**: Receives `order.created`, verifies idempotency in Postgres, charges the customer, marks event processed, and publishes `payment.completed`.
+- **`order_processor`**: Aggregates both completion signals and publishes `order.completed`.
+- **`notification_service`**: Consumes `order.completed` and emits the order confirmation notification!
+
+### Inspect Live Metrics
 - Open **Grafana**: [http://localhost:3000](http://localhost:3000) (User: `admin`, Pass: `admin`)
-- Navigate to **Dashboards** → **Kafka Overview** to see your produced messages and consumer group metrics updated live!
+- Open **Prometheus**: [http://localhost:9090](http://localhost:9090)
+- Navigate to **Dashboards** → **Kafka Overview** to see your produced messages, partitions, and consumer group lag updated in real time!

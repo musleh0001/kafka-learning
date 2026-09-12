@@ -13,15 +13,14 @@ conf = {
 producer = Producer(conf)
 
 
-def publish_inventory_reserved(event):
+def publish_inventory_reserved(event: dict):
     producer.produce(
         topic=config.inventory_topic,
         key=event["correlation_id"],
         value=json.dumps(event),
         callback=delivery_report,
     )
-
-    producer.flush()
+    producer.poll(0)
 
 
 def flush():

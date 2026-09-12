@@ -20,7 +20,7 @@ def publish_order(event: dict):
         value=json.dumps(event),
         callback=delivery_report,
     )
-    producer.flush()
+    producer.poll(0)
 
 
 def flush():

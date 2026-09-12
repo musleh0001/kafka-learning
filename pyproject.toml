@@ -22,7 +22,8 @@ project-includes = [
 ]
 
 [tool.ruff.lint]
-select = ["I"]
+select = ["E", "F", "W", "I"]
+
 
 [dependency-groups]
 dev = [

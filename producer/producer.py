@@ -11,22 +11,24 @@ def delivery_report(err, msg):
         print(f"Message delivery failed: {err}")
         return
 
+    key = msg.key().decode("utf-8") if msg.key() else "None"
     print(
         "Message delivered successfully: "
         f"topic={msg.topic()}, "
-        f"key={msg.key().decode()}, "
+        f"key={key}, "
         f"partition={msg.partition()}, "
         f"offset={msg.offset()}"
     )
 
 
 conf = {
-    "bootstrap.servers": "localhost:9092",
+    "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
     "linger.ms": 20,  # Wait up to 20ms to batch messages
     "batch.size": 65536,  # 64 KB batch size
     "compression.type": "snappy",
 }
 producer = Producer(conf)
+
 
 for customer_id in range(1, 1000):
     order = {
